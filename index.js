@@ -238,37 +238,37 @@ app.get("/reviewemail", async (req, res) => {
 });
 
 // //delete a review
-app.delete("/reviewdelete/:id", async (req, res) => {
-  try {
-    const id = req.params.id;
-    const product = await Reviews.findOne({ _id: ObjectId(id) });
+// app.delete("/reviewdelete/:id", async (req, res) => {
+//   try {
+//     const id = req.params.id;
+//     const product = await Reviews.findOne({ _id: ObjectId(id) });
 
-    if (!product?._id) {
-      res.send({
-        status: false,
-        message: "Product not found",
-      });
-      return;
-    }
+//     if (!product?._id) {
+//       res.send({
+//         status: false,
+//         message: "Product not found",
+//       });
+//       return;
+//     }
 
-    const result = await Reviews.deleteOne({ _id: ObjectId(id) });
+//     const result = await Reviews.deleteOne({ _id: ObjectId(id) });
 
-    if (result.deletedCount) {
-      res.send({
-        status: true,
-        message: "Deleted successfully !!",
-      });
-    } else {
-      res.send({ status: false, message: "Sorry !Review couldn't be deleted" });
-    }
-  } catch (error) {
-    console.log(error);
-    res.send({
-      status: false,
-      message: error.message,
-    });
-  }
-});
+//     if (result.deletedCount) {
+//       res.send({
+//         status: true,
+//         message: "Deleted successfully !!",
+//       });
+//     } else {
+//       res.send({ status: false, message: "Sorry !Review couldn't be deleted" });
+//     }
+//   } catch (error) {
+//     console.log(error);
+//     res.send({
+//       status: false,
+//       message: error.message,
+//     });
+//   }
+// });
 // //App Listener
 
 app.listen(port, () => {
