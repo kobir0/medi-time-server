@@ -205,37 +205,37 @@ app.get("/review", async (req, res) => {
 
 // //review by email
 
-// app.get("/reviewemail", async (req, res) => {
-//   try {
-//     let query = {};
+app.get("/reviewemail", async (req, res) => {
+  try {
+    let query = {};
 
-//     if (req.query.email) {
-//       query = {
-//         email: req.query.email,
-//       };
-//     }
-//     const reviews = Reviews.find(query);
-//     const result = await reviews.toArray();
+    if (req.query.email) {
+      query = {
+        email: req.query.email,
+      };
+    }
+    const reviews = Reviews.find(query);
+    const result = await reviews.toArray();
 
-//     if (result) {
-//       res.send({
-//         status: true,
-//         data: result,
-//       });
-//     } else {
-//       res.send({
-//         status: false,
-//         message: "No reviews found",
-//       });
-//     }
-//   } catch (error) {
-//     console.log(error);
-//     res.send({
-//       status: false,
-//       message: error.message,
-//     });
-//   }
-// });
+    if (result) {
+      res.send({
+        status: true,
+        data: result,
+      });
+    } else {
+      res.send({
+        status: false,
+        message: "No reviews found",
+      });
+    }
+  } catch (error) {
+    console.log(error);
+    res.send({
+      status: false,
+      message: error.message,
+    });
+  }
+});
 
 // //delete a review
 // app.delete("/reviewdelete/:id", async (req, res) => {
