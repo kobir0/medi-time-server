@@ -4,6 +4,7 @@ const app = express();
 require("dotenv").config();
 const port = process.env.PORT || 5000;
 const { MongoClient, ObjectId, ServerApiVersion } = require("mongodb");
+const jwt = require("jsonwebtoken");
 
 require("colors");
 
@@ -18,8 +19,18 @@ const client = new MongoClient(uri, {
   useUnifiedTopology: true,
   serverApi: ServerApiVersion.v1,
 });
+
+//Collections
+
 const Services = client.db("Medi-Time").collection("Services");
 const Reviews = client.db("Medi-Time").collection("Reviews");
+const Users = client.db("Medi-Time").collection("Users");
+const AppointmentOption = client
+  .db("Medi-Time")
+  .collection("Appointment-Option");
+const BookingsCollection = client
+  .db("Medi-Time")
+  .collection("Bookings-Collection");
 
 async function run() {
   try {
@@ -39,6 +50,175 @@ run();
 app.get("/", (req, res) => {
   res.send("Server is Running");
 });
+
+///Jwt Token
+
+app.get("/jwt", async (req, res) => {
+  try {
+    const email = req.query.email;
+    const user = await Users.findOne({ email: email });
+
+    if (user) {
+      const token = jwt.sign({ email }, process.env.ACCESS_TOKEN, {
+        expiresIn: "1h",
+      });
+      res.send({ accessToken: token });
+    } else {
+      res.status(403).send({ accessToken: "" });
+    }
+  } catch (error) {
+    console.log(error);
+    res.send({
+      status: false,
+      message: error,
+    });
+  }
+});
+
+//Verify jwt token
+function verifyJWT(req, res, next) {
+  console.log("inside verify", req.headers.author);
+  const token = req.headers.author;
+  if (!token) {
+    return res.status(401).send("Unauthorized Access");
+  }
+
+  jwt.verify(token, process.env.ACCESS_TOKEN, function (err, decoded) {
+    if (err) {
+      res.status(403).send("Forbidden Access");
+    }
+    req.decoded = decoded;
+    next();
+  });
+}
+
+//Appointments Server
+
+//Appointment Options
+app.get("/appointmentOptions", async (req, res) => {
+  try {
+    const date = req.query.date;
+    console.log(date);
+    const options = await AppointmentOption.find({}).toArray();
+
+    const alreadyBooked = await BookingsCollection.find({
+      apppointmentDate: date,
+    }).toArray();
+
+    options.forEach((option) => {
+      const bookedOption = alreadyBooked.filter(
+        (book) => book.treatment === option.name
+      );
+      const bookedSlots = bookedOption.map((book) => book.slot);
+      const remainingSlots = option.slots.filter(
+        (slot) => !bookedSlots.includes(slot)
+      );
+      option.slots = remainingSlots;
+    });
+
+    // console.log(alreadyBooked);
+
+    res.send(options);
+  } catch (error) {
+    console.log(error);
+    res.send({
+      status: false,
+      message: error,
+    });
+  }
+});
+
+//Add Bookings
+app.post("/bookings", async (req, res) => {
+  try {
+    const bookings = req.body;
+
+    const alreadyBooked = await BookingsCollection.find({
+      apppointmentDate: bookings.apppointmentDate,
+      email: bookings.email,
+      treatment: bookings.treatment,
+    }).toArray();
+
+    if (alreadyBooked.length) {
+      res.send({
+        status: false,
+        message: `You have already a booking on ${bookings.treatment}`,
+      });
+      return;
+    }
+
+    const result = await BookingsCollection.insertOne(bookings);
+
+    if (result.insertedId) {
+      res.send({
+        status: true,
+        message: " Booking Confirmed ",
+      });
+    } else {
+      res.send({
+        status: false,
+        message: "Failed to add the Bookig",
+      });
+    }
+  } catch (error) {
+    console.log(error);
+    res.send({
+      status: false,
+      message: error.message,
+    });
+  }
+});
+
+//Get Bookings
+
+app.get("/bookings", verifyJWT, async (req, res) => {
+  try {
+    const email = req.query.email;
+    const decodedEmail = req?.decoded?.email;
+    if (email !== decodedEmail) {
+      return res.status(403).send({ message: "Forbidden Access" });
+    }
+    const bookings = await BookingsCollection.find({ email: email }).toArray();
+
+    res.send({
+      status: true,
+      data: bookings,
+    });
+  } catch (error) {
+    console.log(error);
+    res.send({
+      status: false,
+      message: error.message,
+    });
+  }
+});
+
+//users Add
+app.post("/users", async (req, res) => {
+  try {
+    const user = req.body;
+    const result = await Users.insertOne(user);
+    if (result.insertedId) {
+      res.send({
+        status: true,
+        message: `Sucessfully added the user`,
+        email: req.body.email,
+      });
+    } else {
+      res.send({
+        status: false,
+        message: "Failed to add the user",
+      });
+    }
+  } catch (error) {
+    res.send({
+      status: false,
+      message: error.message,
+    });
+  }
+});
+
+//Services Server
 
 app.get("/services", async (req, res) => {
   try {
@@ -90,6 +270,31 @@ app.get("/services/:id", async (req, res) => {
       res.send({
         status: false,
         message: "Service not found",
+      });
+    }
+  } catch (error) {
+    console.log(error);
+    res.send({
+      status: false,
+      message: error.message,
+    });
+  }
+});
+
+//Get One service by Id
+app.get("/review/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const review = await Reviews.findOne({ _id: ObjectId(id) });
+    if (review) {
+      res.send({
+        status: true,
+        data: review,
+      });
+    } else {
+      res.send({
+        status: false,
+        message: "Review not found",
       });
     }
   } catch (error) {
@@ -238,6 +443,7 @@ app.get("/reviewemail", async (req, res) => {
 });
 
 // //delete a review
+
 app.delete("/reviewdelete/:id", async (req, res) => {
   try {
     const id = req.params.id;
@@ -259,6 +465,36 @@ app.delete("/reviewdelete/:id", async (req, res) => {
     });
   }
 });
+
+//review Update
+app.patch("/edit/:id", async (req, res) => {
+  const id = req.params.id;
+  try {
+    const result = await Reviews.updateOne(
+      { _id: ObjectId(id) },
+      { $set: req.body }
+    );
+
+    if (result.modifiedCount) {
+      res.send({
+        status: true,
+        message: "Updated successfully!!",
+      });
+    } else {
+      res.send({
+        status: false,
+        message: "Sorry!Review couldn't be updated",
+      });
+    }
+  } catch (error) {
+    console.log(error);
+    res.send({
+      status: false,
+      message: error.message,
+    });
+  }
+});
+
 // //App Listener
 
 app.listen(port, () => {
